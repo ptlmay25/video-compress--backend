@@ -400,12 +400,32 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     );
 
     // Define the output resolution for the resized video
-    const outputResolution = "854x480"; // 480p resolution, adjust as needed
+    const outputResolution = "854x480"; // 480p resolution,
+    // const outputResolution = "1280x720"; // 720p resolution,
+    // const outputResolution = "1920x1080"; // 1080p resolution,
 
     // Step 1: Resize the video to the desired resolution (480p)
+
+    //--------- h264  compression --------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(req.file.path)
+    //     .size(outputResolution)
+    //     .output(resizedPath)
+    //     .on("end", resolve)
+    //     .on("error", (err) => {
+    //       console.error("Error resizing video:", err);
+    //       reject(err);
+    //     })
+    //     .run();
+    // });
+
+    //-------- h265 compression ---------- //
+
     await new Promise((resolve, reject) => {
       ffmpeg(req.file.path)
         .size(outputResolution)
+        .videoCodec("libx265") // Use H.265 (HEVC) codec
         .output(resizedPath)
         .on("end", resolve)
         .on("error", (err) => {
@@ -416,9 +436,26 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     });
 
     // Step 2: Compress the resized video
+
+    //------ h264  compression --------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(resizedPath)
+    //     .output(outputPath)
+    //     .on("end", resolve)
+    //     .on("error", (err) => {
+    //       console.error("Error compressing video:", err);
+    //       reject(err);
+    //     })
+    //     .run();
+    // });
+
+    //-------------- h265 compression --------- //
+
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
         .output(outputPath)
+        .outputOptions("-c:v", "libx265") // Use H.265 (HEVC) codec
         .on("end", resolve)
         .on("error", (err) => {
           console.error("Error compressing video:", err);
@@ -428,8 +465,24 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     });
 
     // Step 3: Extract the first frame of the compressed video and save as a thumbnail
+
+    //---------- h264 thumbnail extraction  ---------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(req.file.path)
+    //     .outputOptions("-vframes", "1") // Extract only 1 frame
+    //     .outputOptions("-vf", `scale=${outputResolution}`)
+    //     .outputOptions("-c:v", "libx265") // Use H.265 (HEVC) codec
+    //     .output(thumbnailPath)
+    //     .on("end", resolve)
+    //     .on("error", reject)
+    //     .run();
+    // });
+
+    //---------- h265 thumbnail extraction  ---------- //
+
     await new Promise((resolve, reject) => {
-      ffmpeg(outputPath)
+      ffmpeg(resizedPath)
         .outputOptions("-vframes", "1") // Extract only 1 frame
         .outputOptions("-vf", `scale=${outputResolution}`)
         .output(thumbnailPath)
@@ -447,7 +500,10 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     );
 
     // Perform cleanup
+
     cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
+
+    //----- error catch --- //
   } catch (err) {
     console.error("Error processing video:", err);
     res.status(500).send("Error processing video. Please try again later.");
