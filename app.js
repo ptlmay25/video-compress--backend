@@ -362,7 +362,12 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // Sanitize the file name to avoid any potential security issues
+    const sanitizedFileName = `${Date.now()}-${file.originalname.replace(
+      /[^a-zA-Z0-9-.]/g,
+      "_"
+    )}`;
+    cb(null, sanitizedFileName);
   },
 });
 
@@ -403,7 +408,10 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         .size(outputResolution)
         .output(resizedPath)
         .on("end", resolve)
-        .on("error", reject)
+        .on("error", (err) => {
+          console.error("Error resizing video:", err);
+          reject(err);
+        })
         .run();
     });
 
@@ -412,7 +420,10 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       ffmpeg(resizedPath)
         .output(outputPath)
         .on("end", resolve)
-        .on("error", reject)
+        .on("error", (err) => {
+          console.error("Error compressing video:", err);
+          reject(err);
+        })
         .run();
     });
 
@@ -423,7 +434,10 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         .outputOptions("-vf", `scale=${outputResolution}`)
         .output(thumbnailPath)
         .on("end", resolve)
-        .on("error", reject)
+        .on("error", (err) => {
+          console.error("Error creating thumbnail:", err);
+          reject(err);
+        })
         .run();
     });
 
@@ -436,11 +450,9 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
   } catch (err) {
     console.error("Error processing video:", err);
-    res.status(500).send("Error processing video.");
+    res.status(500).send("Error processing video. Please try again later.");
   }
 });
-
-//------------------ Video file Delete function ----------------------- //
 
 async function cleanupTempFiles(...paths) {
   try {
