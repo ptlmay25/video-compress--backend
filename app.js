@@ -368,87 +368,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// app.post("/compress", upload.single("video"), async (req, res) => {
-//   const { filename } = req.file;
-
-//   // Define the paths for the compressed video, resized video, and thumbnail
-//   const outputPath = path.join(
-//     __dirname,
-//     "compressed",
-//     `${Date.now()}-${filename}.mp4`
-//   );
-//   const resizedPath = path.join(
-//     __dirname,
-//     "resized",
-//     `${Date.now()}-${filename}`
-//   );
-//   const thumbnailPath = path.join(
-//     __dirname,
-//     "thumbnails",
-//     `${Date.now()}-${filename.replace(".mp4", "")}.jpg`
-//   );
-
-//   // Define the output resolution for the compressed video
-//   const outputResolution = "854x480"; // 480p resolution, adjust as needed
-
-//   // Step 1: Compress the video
-//   await new Promise((resolve, reject) => {
-//     ffmpeg(req.file.path)
-//       .output(outputPath)
-//       .on("end", resolve)
-//       .on("error", reject)
-//       .run();
-//   })
-//     .then(() => {
-//       // Step 2: Resize the compressed video
-//       return new Promise((resolve, reject) => {
-//         ffmpeg(outputPath)
-//           .size(outputResolution)
-//           .output(resizedPath)
-//           .on("end", resolve)
-//           .on("error", reject)
-//           .run();
-//       });
-//     })
-//     .then(() => {
-//       // Step 3: Extract the first frame of the resized video and save as a thumbnail
-//       return new Promise((resolve, reject) => {
-//         ffmpeg(resizedPath)
-//           .outputOptions("-vframes", "1") // Extract only 1 frame
-//           .outputOptions("-vf", "scale=480:854") // Resize the frame if needed
-//           .output(thumbnailPath)
-//           .on("end", resolve)
-//           .on("error", reject)
-//           .run();
-//         //------------- for debuging run following comand line ----------------//
-//         // .on("start", (commandLine) =>
-//         //   console.log("ffmpeg command:", commandLine)
-//         // )
-//         // .on("progress", (progress) => console.log("Processing:", progress))
-//         // .on("end", () => console.log("Processing finished successfully."))
-//         // .on("error", (err) => console.error("ffmpeg error:", err.message))
-//         // .run();
-//       });
-//     })
-//     .then(() => {
-//       // Thumbnail creation completed, send the success response
-//       res.send(
-//         "Video compression and thumbnail generation completed successfully."
-//       );
-
-//       // Add a 5-second timeout before calling the cleanupTempFiles function
-//       // setTimeout(() => {
-//       //   cleanupTempFiles(req.file.path, outputPath, resizedPath, thumbnailPath);
-//       // }, 5000);
-//     })
-//     .catch((err) => {
-//       console.error("Error processing video:", err);
-//       res.status(500).send("Error processing video.");
-//     });
-// });
-
-// Route for downloading the compressed video
-
 app.post("/compress", upload.single("video"), async (req, res) => {
   try {
     if (!req.file) {
@@ -514,37 +433,14 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     );
 
     // Perform cleanup
-    // cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
+    cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
   } catch (err) {
     console.error("Error processing video:", err);
     res.status(500).send("Error processing video.");
   }
 });
 
-app.get("/download/:filename", (req, res) => {
-  const { filename } = req.params;
-  const downloadPath = path.join(__dirname, "compressed", filename);
-  res.download(downloadPath, (err) => {
-    if (err) {
-      console.error("Error downloading file:", err);
-      res.status(500).send("Error downloading file.");
-    }
-  });
-});
-
-// function cleanupTempFiles(...paths) {
-//   paths.forEach((path) => {
-//     fs.unlink(path, (err) => {
-//       if (err) {
-//         if (err.code === "ENOENT") {
-//           console.error("File not found:", path);
-//         } else {
-//           console.error("Error deleting temporary file:", err);
-//         }
-//       }
-//     });
-//   });
-// }
+//------------------ Video file Delete function ----------------------- //
 
 async function cleanupTempFiles(...paths) {
   try {
