@@ -346,7 +346,8 @@ const ffmpegPath = require("@ffmpeg-installer/ffmpeg").path;
 const ffmpeg = require("fluent-ffmpeg");
 const ffprobe = require("@ffprobe-installer/ffprobe");
 const cors = require("cors");
-const fs = require("fs");
+const fs = require("fs").promises; // Use fs.promises for consistent usage
+const { v4: uuidv4 } = require("uuid");
 
 const app = express();
 const port = 5000;
@@ -367,92 +368,159 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-app.post("/compress", upload.single("video"), async (req, res) => {
-  const { filename } = req.file;
+// app.post("/compress", upload.single("video"), async (req, res) => {
+//   const { filename } = req.file;
 
-  // Define the paths for the compressed video, resized video, and thumbnail
-  const outputPath = path.join(
-    __dirname,
-    "compressed",
-    `${Date.now()}-${filename}.mp4`
-  );
-  const resizedPath = path.join(
-    __dirname,
-    "resized",
-    `${Date.now()}-${filename}`
-  );
-  const thumbnailPath = path.join(
-    __dirname,
-    "thumbnails",
-    `${Date.now()}-${filename.replace(".mp4", "")}.jpg`
-  );
+//   // Define the paths for the compressed video, resized video, and thumbnail
+//   const outputPath = path.join(
+//     __dirname,
+//     "compressed",
+//     `${Date.now()}-${filename}.mp4`
+//   );
+//   const resizedPath = path.join(
+//     __dirname,
+//     "resized",
+//     `${Date.now()}-${filename}`
+//   );
+//   const thumbnailPath = path.join(
+//     __dirname,
+//     "thumbnails",
+//     `${Date.now()}-${filename.replace(".mp4", "")}.jpg`
+//   );
 
-  // Define the output resolution for the compressed video
-  const outputResolution = "854x480"; // 480p resolution, adjust as needed
+//   // Define the output resolution for the compressed video
+//   const outputResolution = "854x480"; // 480p resolution, adjust as needed
 
-  // Step 1: Compress the video
-  await new Promise((resolve, reject) => {
-    ffmpeg(req.file.path)
-      .output(outputPath)
-      .on("end", resolve)
-      .on("error", reject)
-      .run();
-  })
-    .then(() => {
-      // Step 2: Resize the compressed video
-      return new Promise((resolve, reject) => {
-        ffmpeg(outputPath)
-          .size(outputResolution)
-          .output(resizedPath)
-          .on("end", resolve)
-          .on("error", reject)
-          .run();
-      });
-    })
-    .then(() => {
-      // Step 3: Extract the first frame of the resized video and save as a thumbnail
-      return new Promise((resolve, reject) => {
-        ffmpeg(resizedPath)
-          // .screenshots({
-          //   filename: `${Date.now()}-${filename.replace(".mp4", "")}.jpg`, // Change to .jpg for the thumbnail
-          //   count: 1,
-          //   timestamps: ["00:00:00"],
-          //   folder: "thumbnails",
-          // })
-          .outputOptions("-vframes", "1") // Extract only 1 frame
-          .outputOptions("-vf", "scale=480:854") // Resize the frame if needed
-          .output(thumbnailPath)
-          .on("end", resolve)
-          .on("error", reject)
-          .run();
-        //------------- for debuging run following comand line ----------------//
-        // .on("start", (commandLine) =>
-        //   console.log("ffmpeg command:", commandLine)
-        // )
-        // .on("progress", (progress) => console.log("Processing:", progress))
-        // .on("end", () => console.log("Processing finished successfully."))
-        // .on("error", (err) => console.error("ffmpeg error:", err.message))
-        // .run();
-      });
-    })
-    .then(() => {
-      // Thumbnail creation completed, send the success response
-      res.send(
-        "Video compression and thumbnail generation completed successfully."
-      );
+//   // Step 1: Compress the video
+//   await new Promise((resolve, reject) => {
+//     ffmpeg(req.file.path)
+//       .output(outputPath)
+//       .on("end", resolve)
+//       .on("error", reject)
+//       .run();
+//   })
+//     .then(() => {
+//       // Step 2: Resize the compressed video
+//       return new Promise((resolve, reject) => {
+//         ffmpeg(outputPath)
+//           .size(outputResolution)
+//           .output(resizedPath)
+//           .on("end", resolve)
+//           .on("error", reject)
+//           .run();
+//       });
+//     })
+//     .then(() => {
+//       // Step 3: Extract the first frame of the resized video and save as a thumbnail
+//       return new Promise((resolve, reject) => {
+//         ffmpeg(resizedPath)
+//           .outputOptions("-vframes", "1") // Extract only 1 frame
+//           .outputOptions("-vf", "scale=480:854") // Resize the frame if needed
+//           .output(thumbnailPath)
+//           .on("end", resolve)
+//           .on("error", reject)
+//           .run();
+//         //------------- for debuging run following comand line ----------------//
+//         // .on("start", (commandLine) =>
+//         //   console.log("ffmpeg command:", commandLine)
+//         // )
+//         // .on("progress", (progress) => console.log("Processing:", progress))
+//         // .on("end", () => console.log("Processing finished successfully."))
+//         // .on("error", (err) => console.error("ffmpeg error:", err.message))
+//         // .run();
+//       });
+//     })
+//     .then(() => {
+//       // Thumbnail creation completed, send the success response
+//       res.send(
+//         "Video compression and thumbnail generation completed successfully."
+//       );
 
-      // Add a 5-second timeout before calling the cleanupTempFiles function
-      // setTimeout(() => {
-      //   cleanupTempFiles(req.file.path, outputPath, resizedPath, thumbnailPath);
-      // }, 5000);
-    })
-    .catch((err) => {
-      console.error("Error processing video:", err);
-      res.status(500).send("Error processing video.");
-    });
-});
+//       // Add a 5-second timeout before calling the cleanupTempFiles function
+//       // setTimeout(() => {
+//       //   cleanupTempFiles(req.file.path, outputPath, resizedPath, thumbnailPath);
+//       // }, 5000);
+//     })
+//     .catch((err) => {
+//       console.error("Error processing video:", err);
+//       res.status(500).send("Error processing video.");
+//     });
+// });
 
 // Route for downloading the compressed video
+
+app.post("/compress", upload.single("video"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send("No video file uploaded.");
+    }
+
+    const { filename } = req.file;
+    const uniqueIdentifier = uuidv4();
+
+    // Define the paths for the resized video, compressed video, and thumbnail
+    const resizedPath = path.join(
+      __dirname,
+      "resized",
+      `${uniqueIdentifier}-${filename}`
+    );
+    const outputPath = path.join(
+      __dirname,
+      "compressed",
+      `${uniqueIdentifier}-${filename.replace(path.extname(filename), "")}.mp4`
+    );
+    const thumbnailPath = path.join(
+      __dirname,
+      "thumbnails",
+      `${uniqueIdentifier}-${filename.replace(path.extname(filename), "")}.jpg`
+    );
+
+    // Define the output resolution for the resized video
+    const outputResolution = "854x480"; // 480p resolution, adjust as needed
+
+    // Step 1: Resize the video to the desired resolution (480p)
+    await new Promise((resolve, reject) => {
+      ffmpeg(req.file.path)
+        .size(outputResolution)
+        .output(resizedPath)
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+
+    // Step 2: Compress the resized video
+    await new Promise((resolve, reject) => {
+      ffmpeg(resizedPath)
+        .output(outputPath)
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+
+    // Step 3: Extract the first frame of the compressed video and save as a thumbnail
+    await new Promise((resolve, reject) => {
+      ffmpeg(outputPath)
+        .outputOptions("-vframes", "1") // Extract only 1 frame
+        .outputOptions("-vf", `scale=${outputResolution}`)
+        .output(thumbnailPath)
+        .on("end", resolve)
+        .on("error", reject)
+        .run();
+    });
+
+    // Thumbnail creation completed, send the success response
+    res.send(
+      "Video compression and thumbnail generation completed successfully."
+    );
+
+    // Perform cleanup
+    // cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
+  } catch (err) {
+    console.error("Error processing video:", err);
+    res.status(500).send("Error processing video.");
+  }
+});
+
 app.get("/download/:filename", (req, res) => {
   const { filename } = req.params;
   const downloadPath = path.join(__dirname, "compressed", filename);
@@ -464,18 +532,30 @@ app.get("/download/:filename", (req, res) => {
   });
 });
 
-function cleanupTempFiles(...paths) {
-  paths.forEach((path) => {
-    fs.unlink(path, (err) => {
-      if (err) {
-        if (err.code === "ENOENT") {
-          console.error("File not found:", path);
-        } else {
-          console.error("Error deleting temporary file:", err);
-        }
-      }
-    });
-  });
+// function cleanupTempFiles(...paths) {
+//   paths.forEach((path) => {
+//     fs.unlink(path, (err) => {
+//       if (err) {
+//         if (err.code === "ENOENT") {
+//           console.error("File not found:", path);
+//         } else {
+//           console.error("Error deleting temporary file:", err);
+//         }
+//       }
+//     });
+//   });
+// }
+
+async function cleanupTempFiles(...paths) {
+  try {
+    const deletePromises = paths.map((path) => fs.unlink(path));
+
+    await Promise.all(deletePromises);
+    console.log("Temporary files deleted successfully.");
+  } catch (err) {
+    console.error("Error deleting temporary files:", err);
+    // You can decide whether to throw the error further or handle it here.
+  }
 }
 
 app.listen(port, () => {
