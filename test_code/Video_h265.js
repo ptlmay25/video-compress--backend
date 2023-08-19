@@ -1,4 +1,4 @@
-// // --------------------------------- Video compress & Thumbnail generation code ---------------------------------- //
+// // --------------------------------- H265 codec Video compress & Thumbnail generation code ---------------------------------- //
 
 const express = require("express");
 const multer = require("multer");
@@ -69,7 +69,21 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Step 1: Resize the video to the desired resolution (480p)
 
-    //--------- h265  compression --------- //
+    //--------- h264  compression --------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(req.file.path)
+    //     .size(outputResolution)
+    //     .output(resizedPath)
+    //     .on("end", resolve)
+    //     .on("error", (err) => {
+    //       console.error("Error resizing video:", err);
+    //       reject(err);
+    //     })
+    //     .run();
+    // });
+
+    //-------- h265 compression ---------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(req.file.path)
@@ -86,7 +100,20 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Step 2: Compress the resized video
 
-    //------ h265  compression --------- //
+    //------ h264  compression --------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(resizedPath)
+    //     .output(outputPath)
+    //     .on("end", resolve)
+    //     .on("error", (err) => {
+    //       console.error("Error compressing video:", err);
+    //       reject(err);
+    //     })
+    //     .run();
+    // });
+
+    //-------------- h265 compression --------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
@@ -102,7 +129,20 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Step 3: Extract the first frame of the compressed video and save as a thumbnail
 
-    //---------- h264-265 thumbnail extraction  ---------- //
+    //---------- h265 thumbnail extraction  ---------- //
+
+    // await new Promise((resolve, reject) => {
+    //   ffmpeg(req.file.path)
+    //     .outputOptions("-vframes", "1") // Extract only 1 frame
+    //     .outputOptions("-vf", `scale=${outputResolution}`)
+    //     .outputOptions("-c:v", "libx265") // Use H.265 (HEVC) codec
+    //     .output(thumbnailPath)
+    //     .on("end", resolve)
+    //     .on("error", reject)
+    //     .run();
+    // });
+
+    //---------- h264 thumbnail extraction works for both   ---------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
@@ -120,7 +160,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     // Thumbnail creation completed, send the success response
     res.send("Product successfully added.");
 
-    // ------------- Delete upload file  -------------- //
+    // Perform cleanup
 
     cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
 
@@ -131,7 +171,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
   }
 });
 
-// ----------------------------- delete upload / temporary video file --------------- //
+//------------------ Temporary upload file delete code ------------------------- //
 
 async function cleanupTempFiles(...paths) {
   try {
