@@ -9,6 +9,13 @@ const ffprobe = require("@ffprobe-installer/ffprobe");
 const cors = require("cors");
 const fs = require("fs").promises; // Use fs.promises for consistent usage
 const { v4: uuidv4 } = require("uuid");
+const { createClient } = require("@supabase/supabase-js");
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_PROJECT_UserURL,
+  process.env.SUPABASE_PROJECT_UserKEY
+);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -17,7 +24,7 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobe.path); // Set the path for ffprobe
 
 app.use(cors());
-// app.use(express.static("dist"));
+app.use(express.static("dist"));
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -117,8 +124,25 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         .run();
     });
 
-    // Thumbnail creation completed, send the success response
-    res.send("Product successfully added.");
+    // step 4. Video upload to supababase ------------
+
+    const videoData = await fs.readFile(outputPath);
+    const { data, error } = await supabase.storage
+      .from("video")
+      .upload(`${uniqueIdentifier}`, videoData);
+    // console.log(data);
+
+    // step 5. Thumbnail upload to supababase ------------
+
+    const thumbnailData = await fs.readFile(thumbnailPath);
+    const { data: tdata, error: terror } = await supabase.storage
+      .from("thumbnail")
+      .upload(`${uniqueIdentifier}`, thumbnailData);
+    // console.log(tdata);
+
+    // Upload completed, send the success response
+
+    res.send({ videoid: data, thumbnailid: tdata });
 
     // ------------- Delete upload file  -------------- //
 
