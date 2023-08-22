@@ -129,7 +129,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     const videoData = await fs.readFile(outputPath);
     const { data, error } = await supabase.storage
       .from("video")
-      .upload(`${uniqueIdentifier}`, videoData);
+      .upload(`${filename}-${uniqueIdentifier}`, videoData);
     // console.log(data);
 
     // step 5. Thumbnail upload to supababase ------------
@@ -137,7 +137,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     const thumbnailData = await fs.readFile(thumbnailPath);
     const { data: tdata, error: terror } = await supabase.storage
       .from("thumbnail")
-      .upload(`${uniqueIdentifier}`, thumbnailData);
+      .upload(`${filename}-${uniqueIdentifier}`, thumbnailData);
     // console.log(tdata);
 
     // Upload completed, send the success response
@@ -169,6 +169,13 @@ async function cleanupTempFiles(...paths) {
   }
 }
 
+//--------------------------------- app running message--------------------------------------//
+
+app.get("/api/user", (req, res) => {
+  res.send("hello server is running");
+});
+
+//-------------------- port -------------------
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
