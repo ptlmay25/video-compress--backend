@@ -129,7 +129,13 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     const videoData = await fs.readFile(outputPath);
     const { data, error } = await supabase.storage
       .from("video")
-      .upload(`${filename}-${uniqueIdentifier}`, videoData);
+      .upload(
+        `${uniqueIdentifier}-${filename.replace(
+          path.extname(filename),
+          ""
+        )}.mp4`,
+        videoData
+      );
     // console.log(data);
 
     // step 5. Thumbnail upload to supababase ------------
@@ -137,7 +143,13 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     const thumbnailData = await fs.readFile(thumbnailPath);
     const { data: tdata, error: terror } = await supabase.storage
       .from("thumbnail")
-      .upload(`${filename}-${uniqueIdentifier}`, thumbnailData);
+      .upload(
+        `${uniqueIdentifier}-${filename.replace(
+          path.extname(filename),
+          ""
+        )}.jpg`,
+        thumbnailData
+      );
     // console.log(tdata);
 
     // Upload completed, send the success response
