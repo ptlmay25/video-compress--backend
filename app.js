@@ -70,7 +70,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Define the output resolution for the resized video
 
-    const outputResolution = "854x480"; // 480p resolution,
+    const outputResolution = "854x480"; // 480p 854x480 resolution,
     // const outputResolution = "1280x720"; // 720p resolution,
     // const outputResolution = "1920x1080"; // 1080p resolution,
 
@@ -82,6 +82,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       ffmpeg(req.file.path)
         .size(outputResolution)
         .videoCodec("libx265") // Use H.265 (HEVC) codec
+        .autopad() // Maintain original aspect ratio
         .output(resizedPath)
         .on("end", resolve)
         .on("error", (err) => {
@@ -99,6 +100,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       ffmpeg(resizedPath)
         .output(outputPath)
         .outputOptions("-c:v", "libx265") // Use H.265 (HEVC) codec
+        .autopad() // Maintain original aspect ratio
         .on("end", resolve)
         .on("error", (err) => {
           console.error("Error compressing video:", err);
@@ -158,7 +160,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // ------------- Delete upload file  -------------- //
 
-    cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
+    // cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
 
     //----- error catch --- //
   } catch (err) {
