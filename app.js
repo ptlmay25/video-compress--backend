@@ -70,18 +70,18 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Define the output resolution for the resized video
 
-    const outputResolution = "854x480"; // 480p resolution,
+    const outputResolution = "480x854"; // 480p resolution,
     // const outputResolution = "1280x720"; // 720p resolution,
     // const outputResolution = "1920x1080"; // 1080p resolution,
 
     // Step 1: Resize the video to the desired resolution (480p)
 
-    //--------- h265  compression --------- //
+    //--------- google VP9 codec  compression --------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(req.file.path)
         .size(outputResolution)
-        .videoCodec("libx265") // Use H.265 (HEVC) codec
+        .videoCodec("libvpx-vp9") // Use VP9 codec
         .output(resizedPath)
         .on("end", resolve)
         .on("error", (err) => {
@@ -93,12 +93,12 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Step 2: Compress the resized video
 
-    //------ h265  compression --------- //
+    //------ google VP9 codec  compression --------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
         .output(outputPath)
-        .outputOptions("-c:v", "libx265") // Use H.265 (HEVC) codec
+        .outputOptions("-c:v", "libvpx-vp9") // Use VP9 codec
         .on("end", resolve)
         .on("error", (err) => {
           console.error("Error compressing video:", err);
@@ -109,7 +109,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Step 3: Extract the first frame of the compressed video and save as a thumbnail
 
-    //---------- h264-265 thumbnail extraction  ---------- //
+    //---------- thumbnail extraction  ---------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
@@ -152,11 +152,11 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       );
     // console.log(tdata);
 
-    // Upload completed, send the success response
+    // step 6. Upload completed, send the success response to frontend
 
     res.send({ videoid: data, thumbnailid: tdata });
 
-    // ------------- Delete upload file  -------------- //
+    // step 7. ------------- Delete all upload & compressed files  -------------- //
 
     cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
 
@@ -167,7 +167,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
   }
 });
 
-// ----------------------------- delete upload / temporary video file --------------- //
+// ----------------------------- delete upload / temporary video file function --------------- //
 
 async function cleanupTempFiles(...paths) {
   try {
