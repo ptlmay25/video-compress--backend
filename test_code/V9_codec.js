@@ -55,9 +55,13 @@ app.post("/compress", upload.single("video"), async (req, res) => {
     const resizedPath = path.join(
       __dirname,
       "resized",
+      `${uniqueIdentifier}-${filename}`
+    );
+    const outputPath = path.join(
+      __dirname,
+      "compressed",
       `${uniqueIdentifier}-${filename.replace(path.extname(filename), "")}.mp4`
     );
-
     const thumbnailPath = path.join(
       __dirname,
       "thumbnails",
@@ -66,7 +70,9 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     // Define the output resolution for the resized video
 
-    const outputResolution = 480; // 480p resolution,
+    const outputResolution = "480x854"; // 480p resolution,
+    // const outputResolution = "1280x720"; // 720p resolution,
+    // const outputResolution = "1920x1080"; // 1080p resolution,
 
     // Step 1: Resize the video to the desired resolution (480p)
 
@@ -74,7 +80,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
 
     await new Promise((resolve, reject) => {
       ffmpeg(req.file.path)
-        .videoFilter(`scale=-1:${outputResolution}`)
+        .size(outputResolution)
         .videoCodec("libvpx-vp9") // Use VP9 codec
         .output(resizedPath)
         .on("end", resolve)
@@ -85,13 +91,30 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         .run();
     });
 
-    // Step 2: Extract the first frame of the compressed video and save as a thumbnail
+    // Step 2: Compress the resized video
+
+    //------ google VP9 codec  compression --------- //
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(resizedPath)
+        .output(outputPath)
+        .outputOptions("-c:v", "libvpx-vp9") // Use VP9 codec
+        .on("end", resolve)
+        .on("error", (err) => {
+          console.error("Error compressing video:", err);
+          reject(err);
+        })
+        .run();
+    });
+
+    // Step 3: Extract the first frame of the compressed video and save as a thumbnail
 
     //---------- thumbnail extraction  ---------- //
 
     await new Promise((resolve, reject) => {
       ffmpeg(resizedPath)
-        .outputOptions("-vframes", "1") // Extract only first frame
+        .outputOptions("-vframes", "1") // Extract only 1 frame
+        .outputOptions("-vf", `scale=${outputResolution}`)
         .output(thumbnailPath)
         .on("end", resolve)
         .on("error", (err) => {
@@ -101,9 +124,9 @@ app.post("/compress", upload.single("video"), async (req, res) => {
         .run();
     });
 
-    // step 3. Video upload to supababase ------------
+    // step 4. Video upload to supababase ------------
 
-    const videoData = await fs.readFile(resizedPath);
+    const videoData = await fs.readFile(outputPath);
     const { data, error } = await supabase.storage
       .from("video")
       .upload(
@@ -115,7 +138,7 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       );
     // console.log(data);
 
-    // step 4. Thumbnail upload to supababase ------------
+    // step 5. Thumbnail upload to supababase ------------
 
     const thumbnailData = await fs.readFile(thumbnailPath);
     const { data: tdata, error: terror } = await supabase.storage
@@ -129,13 +152,13 @@ app.post("/compress", upload.single("video"), async (req, res) => {
       );
     // console.log(tdata);
 
-    // step 5. Upload completed, send the success response to frontend
+    // step 6. Upload completed, send the success response to frontend
 
     res.send({ videoid: data, thumbnailid: tdata });
 
-    // step 6. ------------- Delete all upload & compressed files  -------------- //
+    // step 7. ------------- Delete all upload & compressed files  -------------- //
 
-    cleanupTempFiles(req.file.path, resizedPath, thumbnailPath);
+    cleanupTempFiles(req.file.path, resizedPath, outputPath, thumbnailPath);
 
     //----- error catch --- //
   } catch (err) {
